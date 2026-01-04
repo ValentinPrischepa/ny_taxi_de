@@ -1,0 +1,58 @@
+version: 2
+
+sources:
+  - name: ny_taxi_raw
+    database: nfrowner1
+    schema: ny_taxi_raw
+    tables:
+      - name: yellow_trips
+        columns:
+          - name: tpep_pickup_datetime
+            tests:
+              - not_null
+
+          - name: tpep_dropoff_datetime
+            tests:
+              - not_null
+
+          - name: trip_distance
+            tests:
+              - not_null
+
+          - name: fare_amount
+            tests:
+              - not_null
+        tests:
+
+          - dbt_utils.expression_is_true:
+              expression: "trip_distance >= 0"
+
+      - name: green_trips
+        columns:
+          - name: lpep_pickup_datetime
+            tests:
+              - not_null
+
+          - name: lpep_dropoff_datetime
+            tests:
+              - not_null
+
+          - name: trip_distance
+            tests:
+              - not_null
+
+          - name: fare_amount
+            tests:
+              - not_null
+        tests:
+          - dbt_utils.expression_is_true:
+              expression: "trip_distance >= 0"
+      - name: fhv_trips
+        columns:
+          - name: pickup_datetime
+            tests:
+              - not_null
+
+          - name: dropoff_datetime
+            tests:
+              - not_null

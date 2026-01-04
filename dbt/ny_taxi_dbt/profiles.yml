@@ -1,0 +1,11 @@
+ny_taxi_dbt:
+  target: dev
+  outputs:
+    dev:
+      type: bigquery
+      method: service-account
+      project: nfrowner1
+      dataset: ny_taxi_raw
+      location: europe-west1
+      threads: 4
+      keyfile: /opt/airflow/gcp/key.json

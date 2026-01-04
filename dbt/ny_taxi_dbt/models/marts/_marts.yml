@@ -1,0 +1,52 @@
+version: 2
+
+models:
+  - name: fact_trips
+    description: "Unified fact table for all NYC taxi trips"
+    columns:
+      - name: trip_id
+        description: "Surrogate key for the trip"
+        tests:
+          - not_null
+          - unique
+
+      - name: taxi_type
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['yellow', 'green', 'fhv']
+
+      - name: pickup_ts
+        tests:
+          - not_null
+
+      - name: dropoff_ts
+        tests:
+          - not_null
+
+      - name: pickup_date
+        tests:
+          - not_null
+
+  - name: daily_trip_metrics
+    description: "Daily aggregated trip metrics by taxi type"
+    columns:
+      - name: pickup_date
+        tests:
+          - not_null
+
+      - name: taxi_type
+        tests:
+          - not_null
+      - name: fare_amount
+
+  - name: dim_zone
+    columns:
+      - name: location_id
+        tests:
+          - not_null
+          - unique
+tests:
+  - dbt_utils.expression_is_true:
+      expression: "fare_amount is not null"
+      where: "taxi_type != 'fhv'"

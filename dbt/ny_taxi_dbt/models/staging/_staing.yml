@@ -1,0 +1,7 @@
+models:
+  - name: stg_taxi_zones
+    columns:
+      - name: location_id
+        tests:
+          - not_null
+          - unique

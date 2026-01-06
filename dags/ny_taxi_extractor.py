@@ -17,13 +17,13 @@ from constants import NY_BQ_DATASET, NY_RAW_BUCKET, GC_PROJECT_ID
 with DAG(
     dag_id="ny_taxi_extractor",
     start_date=datetime(2025, 1, 1),
-    schedule=None,  # manual trigger
+    schedule=None,
     catchup=False,
     params={
-        "year_month": Param(
-            default="2025-01",
+        "period": Param(
+            default="2025-03",
             type="string",
-            description="Year-month to ingest, e.g. 2025-01"
+            description="Year-month to ingest, e.g. 2025-01 or period like 2025-01:2025-03"
         ),
         "data_type": Param(
                     default="yellow",
@@ -32,6 +32,26 @@ with DAG(
                 )
     }
 ) as dag:
+    @task
+    def get_year_months(period: str) -> list[str]:
+        if ":" not in period:
+            return [period]
+
+        start_str, end_str = period.split(":")
+        start_date = datetime.strptime(start_str, "%Y-%m")
+        end_date = datetime.strptime(end_str, "%Y-%m")
+
+        months = []
+        current_date = start_date
+        while current_date <= end_date:
+            months.append(current_date.strftime("%Y-%m"))
+            if current_date.month == 12:
+                current_date = current_date.replace(year=current_date.year + 1, month=1)
+            else:
+                current_date = current_date.replace(month=current_date.month + 1)
+        return months
+
+
     @task
     def download_parquet(year_month: str, data_type: str) -> str:
         url = f"https://d37ci6vzurychx.cloudfront.net/trip-data/{data_type}_tripdata_{year_month}.parquet"
@@ -76,13 +96,13 @@ with DAG(
             project_id: str,
             dataset: str,
             data_type: str,
-            object_name: str,
+            object_names: list[str],
     ):
         bq_hook = BigQueryHook(gcp_conn_id=gcp_conn_id)
         client = bq_hook.get_client()
 
         table_id = f"{project_id}.{dataset}.{data_type}_trips"
-        uri = f"gs://{bucket}/{object_name}"
+        uris = [f"gs://{bucket}/{obj}" for obj in object_names]
 
         job_config = LoadJobConfig(
             source_format=SourceFormat.PARQUET,
@@ -91,7 +111,7 @@ with DAG(
         )
 
         load_job = client.load_table_from_uri(
-            uri,
+            uris,
             table_id,
             job_config=job_config,
         )
@@ -108,10 +128,10 @@ with DAG(
         """,
     )
 
-    year_month = dag.params["year_month"]
-    data_type = dag.params["data_type"]
+    year_months = get_year_months("{{ params.period }}")
 
-    download_parquet_task = download_parquet(year_month, data_type)
+
+    download_tasks = download_parquet.partial(data_type="{{ params.data_type }}").expand(year_month=year_months)
 
     load_gcs_to_bq_task = load_gcs_to_bq(
         gcp_conn_id="google_cloud_default",
@@ -119,8 +139,7 @@ with DAG(
         project_id=GC_PROJECT_ID,
         dataset=NY_BQ_DATASET,
         data_type="{{ params.data_type }}",
-        object_name=download_parquet_task
+        object_names=download_tasks
     )
 
-
-    download_parquet_task >> load_gcs_to_bq_task >> dbt_test_raw
+    load_gcs_to_bq_task >> dbt_test_raw

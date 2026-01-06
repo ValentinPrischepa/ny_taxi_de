@@ -1,9 +1,7 @@
 requests
-apache-airflow
 pandas
 numpy
 pyarrow
-apache-airflow-providers-postgres
 apache-airflow[google]
 dbt-core==1.7.9
 dbt-bigquery==1.7.9
